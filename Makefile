@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rtl9617c-pon-control
 PKG_VERSION:=0.11.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=GPL-2.0-or-later
 
 include $(INCLUDE_DIR)/package.mk
@@ -11,7 +11,7 @@ define Package/rtl9617c-pon-control
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Native RTL9617C PON identity, EPON OAM and ITU OMCI control
-  DEPENDS:=+libuci +libgcc +ucode +ucode-mod-fs
+  DEPENDS:=@TARGET_rtl9617c +libuci +libgcc +ucode +ucode-mod-fs
 endef
 
 define Build/Prepare
@@ -22,12 +22,16 @@ define Build/Prepare
 	$(CP) ./omci/src/* $(PKG_BUILD_DIR)/omci/src/
 endef
 
-RTL9617C_CARGO?=$(firstword $(wildcard $(HOME)/.cargo/bin/cargo) $(shell command -v cargo))
+RTL9617C_CARGO?=$(firstword $(wildcard $(STAGING_DIR_HOSTPKG)/bin/cargo $(STAGING_DIR_HOST)/bin/cargo $(HOME)/.cargo/bin/cargo) $(shell command -v cargo))
 RTL9617C_RUST_TARGET?=$(ARCH)-unknown-linux-musl
 RTL9617C_RUST_CPU?=cortex-a53
 PON_CFLAGS:=-std=gnu11 -Wall -Wextra -Werror -Wshadow -Wformat=2 -Wundef \
 	-Wcast-align -Wstrict-prototypes
 define Build/Compile
+	@test -x "$(RTL9617C_CARGO)" || { \
+		echo "ERROR: Rust cargo not found (checked staging_dir, ~/.cargo/bin, PATH); install rustup + $(RTL9617C_RUST_TARGET) or pass RTL9617C_CARGO=..." >&2; \
+		exit 1; \
+	}
 	cd $(PKG_BUILD_DIR)/omci && RUSTC="$(dir $(RTL9617C_CARGO))rustc" \
 		RUSTFLAGS="-C target-cpu=$(RTL9617C_RUST_CPU)" $(RTL9617C_CARGO) build --release --locked \
 		--target $(RTL9617C_RUST_TARGET)
